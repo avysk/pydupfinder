@@ -1,5 +1,6 @@
 #pydupfinder
 
+```
 Usage: pydupfinder [OPTIONS] PATH
 
 Options:
@@ -9,6 +10,6 @@ Options:
     -m, --max-size TEXT           Calculate checksums for AT MOST this total
                                   size of files.
   --help                          Show this message and exit.
-
+```
 
 `max-size` limit allows one, for example, find duplicates in OneDrive without downloading everything.
