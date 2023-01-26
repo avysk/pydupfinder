@@ -6,7 +6,6 @@ import hashlib
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
-from re import S
 import sqlite3
 from typing import DefaultDict, List, Optional, Set
 
