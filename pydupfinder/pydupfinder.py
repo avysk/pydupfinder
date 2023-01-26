@@ -16,25 +16,35 @@ LIMITS = MutuallyExclusiveOptionGroup(
 )
 
 
-def hash(fname: str) -> str:
+def _file_hash(fname: str) -> str:
+    """
+    Return hexdigest of md5 hash of the file with the given path.
+
+    :param fname: The full path to the file.
+    :returns: Hexdigest of md5 sum of the given file.
+    """
     with open(fname, "rb") as file:
         file_bytes = file.read()
         return hashlib.md5(file_bytes).hexdigest()
 
 
-def parse_size(
+def _parse_size(
     _ctx: click.Context,  # pyright: ignore
     _param: click.Parameter,  # pyright: ignore
     value: Optional[str],
 ) -> Optional[int]:
-    """TODO: Docstring for parse_size(
-    ctx: cl.
+    """
+    Return the value of max-size option as a string.
 
-    :ick.Context: TODO
-    :param: TODO
-    :value: TODO
-    :returns: TODO
+    Takes into acount letter suffices.
 
+    :param _ctx: Click Context. Unused.
+    :param _param: Click Parameter. Unused.
+    :param value: Option value as a string.
+    :returns: Option value as a number.
+    :raise click.BadParameter: Exception raised if the option value cannot be
+                               parsed or is non-strictly positive, to signal
+                               click that the option value is not valid.
     """
     if value is None:
         return None
@@ -54,8 +64,12 @@ def parse_size(
         val = val.removesuffix(suffix.upper())
     val = val.rstrip()
     try:
-        print(val)
-        return int(val) * multiplier
+        parsed = int(val) * multiplier
+        if parsed <= 0:
+            raise click.BadParameter(
+                f"Got value '{value}'. It must be strictly positive."
+            )
+        return parsed
     except ValueError:
         raise click.BadParameter(  # pylint: disable=raise-missing-from
             f"Cannot parse size '{value}'."
@@ -76,9 +90,11 @@ def parse_size(
     "-m",
     "max_size",
     help="Calculate checksums for AT MOST this total size of files.",
-    callback=parse_size,
+    callback=_parse_size,
 )
-def cli(path: str, at_least: Optional[int], max_size: int):
+def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-locals
+    path: str, at_least: Optional[int], max_size: int
+):
     """
     Main entry point.
     """
@@ -148,11 +164,9 @@ def cli(path: str, at_least: Optional[int], max_size: int):
     with click.progressbar(
         length=length, label="Checksumming files"
     ) as stage3_pb:  # pyright: ignore
-        for size in stage3_pb:
+        for size, files in files_by_size.items():
             if at_least and (found_dups >= at_least):
-                print(found_dups, dups)
                 break
-            files = files_by_size[size]
             if (
                 max_size
                 and total_size_checksummed + len(files) * size > max_size
@@ -162,7 +176,7 @@ def cli(path: str, at_least: Optional[int], max_size: int):
 
             hashes_of_files: DefaultDict[str, List[str]] = defaultdict(list)
             for file in files:
-                file_hash = hash(file)
+                file_hash = _file_hash(file)
                 hashes_of_files[file_hash].append(file)
                 total_size_checksummed += size
                 if max_size:
@@ -175,7 +189,6 @@ def cli(path: str, at_least: Optional[int], max_size: int):
                     continue
                 dups = len(identical)
                 found_dups += dups
-                print(found_dups, dups)
                 duplicate_files = "\n".join(identical)
                 click.echo(
                     click.style(
@@ -183,7 +196,7 @@ def cli(path: str, at_least: Optional[int], max_size: int):
                         fg="blue",
                     )
                 )
-            if at_least:
+            if at_least and dups:
                 stage3_pb.update(dups)  # pyright: ignore
             elif not max_size:
                 stage3_pb.update(size)  # pyright: ignore
