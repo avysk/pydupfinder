@@ -1,7 +1,8 @@
-#pydupfinder
+# pydupfinder
 
-```
-Usage: pydupfinder [OPTIONS] PATH
+```Usage: pydupfinder [OPTIONS] PATH
+
+  Find duplicate files.
 
 Options:
   Limits: [mutually_exclusive]    Limits for found duplicates
@@ -9,6 +10,7 @@ Options:
                                   are enough duplicates.  [x>=2]
     -m, --max-size TEXT           Calculate checksums for AT MOST this total
                                   size of files.
+  -r, --reset-cache               Remove database, caching checksums
   --help                          Show this message and exit.
 ```
 
