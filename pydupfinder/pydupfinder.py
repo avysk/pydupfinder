@@ -188,7 +188,7 @@ def _human_readble_size(size: int, digits: int = 2) -> str:
     default=False,
     help="Remove database, caching checksums",
 )
-def duplicate_finder(  # pylint: disable=too-many-statements,too-many-branches,too-many-locals
+def duplicate_finder(  # pylint: disable=too-many-statements,too-many-branches,too-many-locals  # noqa: E501
     path: str,
     min_duplicates: Optional[int],
     max_total_size: int,
