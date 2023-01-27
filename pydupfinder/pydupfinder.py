@@ -7,7 +7,7 @@ from collections import defaultdict
 from functools import partial
 from pathlib import Path
 import sqlite3
-from typing import DefaultDict, List, Optional, Set
+from typing import DefaultDict, Dict, List, Optional, Set
 
 import click
 from click_option_group import MutuallyExclusiveOptionGroup
@@ -129,6 +129,39 @@ def _parse_size(
         raise click.BadParameter(  # pylint: disable=raise-missing-from
             f"Cannot parse size '{value}'."
         )
+
+
+def _human_readble_size(size: int, digits: int = 2) -> str:
+    """
+    Convert size to human readable format.
+
+    If size is more than or equal to a half of a kilobyte (megabyte, gigabyte)
+    it is presented as a decimal fraction with the given number of digits after
+    the decimal separator and a Ki (Mi, Gi) suffix. The "B" on the end is
+    always added.
+
+    :param size: size to convert
+    :param digits: the number of digits after the decimal separator.
+    :returns: the string reprosentation of the size.
+    """
+    next_unit = 1024
+    half_kib = 512
+    half_mib = half_kib * next_unit
+    half_gib = half_mib * next_unit
+    if size < half_kib:
+        adjusted = size
+        units = ""
+    elif size < half_mib:
+        adjusted = size / next_unit
+        units = "Ki"
+    elif size < half_gib:
+        adjusted = size / next_unit / next_unit
+        units = "Mi"
+    else:
+        adjusted = size / next_unit / next_unit / next_unit
+        units = "Gi"
+
+    return f"{round(adjusted, ndigits=digits)}{units}B"
 
 
 @click.command()
@@ -257,9 +290,13 @@ def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-local
     found_dups = 0
     total_size_checksummed = 0
 
+    # The following dictionary maps the size to a set of found duplicate files
+    # of this size
+    found_duplicate_files: Dict[int, Set[Path]] = {}
+
     # Stage 3: comparing checksums
     with click.progressbar(
-        length=length, label="Checksumming files"
+        length=length, label="Determining files' checksums"
     ) as stage3_pb:  # pyright: ignore
         for size in stage2_sizes:
             if at_least and (found_dups >= at_least):
@@ -310,13 +347,7 @@ def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-local
                     continue
                 # We have some duplicates
                 found_dups += dups
-                duplicate_files = "\n".join(str(p) for p in identical)
-                click.echo(
-                    click.style(
-                        f"\nFound {dups} duplicates:\n{duplicate_files}",
-                        fg="blue",
-                    )
-                )
+                found_duplicate_files[size] = identical
             if at_least and dups:
                 # If there is a limit on the number of duplicates found, update
                 # the progressbar
@@ -327,6 +358,16 @@ def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-local
                 stage3_pb.update(size * len(files))  # pyright: ignore
 
         stage3_pb.update(length)  # pyright: ignore
+
+        for size, identical in reversed(found_duplicate_files.items()):
+            duplicate_files = "\n".join(str(p) for p in identical)
+            click.echo(
+                click.style(
+                    f"\nFound {len(identical)} duplicates of size "
+                    f"{_human_readble_size(size)}:\n{duplicate_files}",
+                    fg="blue",
+                )
+            )
 
 
 if __name__ == "__main__":
