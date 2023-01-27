@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydupfinder"
-version = "2.1.0"
+version = "3.0.0"
 description = ""
 authors = ["Alexey Vyskubov <alexey@ocaml.nl>"]
 readme = "README.md"
@@ -19,7 +19,7 @@ pytest = "^7.2.1"
 pyright = "^1.1.291"
 
 [tool.poetry.scripts]
-pydupfinder = "pydupfinder.pydupfinder:cli"
+pydupfinder = "pydupfinder.pydupfinder:duplicate_finder"
 
 [build-system]
 requires = ["poetry-core"]

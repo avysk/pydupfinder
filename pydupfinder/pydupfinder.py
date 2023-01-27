@@ -167,29 +167,32 @@ def _human_readble_size(size: int, digits: int = 2) -> str:
 @click.command()
 @click.argument("path", type=click.Path(exists=True))
 @LIMITS.option(  # type: ignore
-    "--at-least",
-    "-a",
-    "at_least",
+    "--minimal-number-of-duplicates",
+    "-n",
+    "min_duplicates",
     help="Find AT LEAST that many duplicates if there are enough duplicates.",
     type=click.IntRange(min=2),
 )
 @LIMITS.option(  # type: ignore
-    "--max-size",
-    "-m",
-    "max_size",
+    "--max-total-size-of-checksummed files",
+    "-t",
+    "max_total_size",
     help="Calculate checksums for AT MOST this total size of files.",
     callback=_parse_size,
 )
 @click.option(
-    "--reset-cache",
+    "--reset-checksum-cache",
     "-r",
-    "reset_cache",
+    "reset_checksum_cache",
     is_flag=True,
     default=False,
     help="Remove database, caching checksums",
 )
-def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-locals
-    path: str, at_least: Optional[int], max_size: int, reset_cache: bool
+def duplicate_finder(  # pylint: disable=too-many-statements,too-many-branches,too-many-locals
+    path: str,
+    min_duplicates: Optional[int],
+    max_total_size: int,
+    reset_checksum_cache: bool,
 ):
     """
     Find duplicate files.
@@ -197,7 +200,7 @@ def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-local
     app_dir = Path(click.get_app_dir("Pydupfinder"))
     app_dir.mkdir(parents=True, exist_ok=True)
     database = app_dir / "cache.sqlite"
-    if reset_cache:
+    if reset_checksum_cache:
         database.unlink(missing_ok=True)
     _create_cache(database)
     cached_checksum = partial(_get_checksum_from_cache, database)
@@ -210,14 +213,17 @@ def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-local
             fg="green",
         )
     )
-    if max_size is not None:
-        click.echo(
-            click.style(f"Checksumming at most {max_size} bytes.", fg="green")
-        )
-    if at_least is not None:
+    if max_total_size is not None:
         click.echo(
             click.style(
-                f"Trying to find at least {at_least} duplicates.", fg="green"
+                f"Checksumming at most {max_total_size} bytes.", fg="green"
+            )
+        )
+    if min_duplicates is not None:
+        click.echo(
+            click.style(
+                f"Trying to find at least {min_duplicates} duplicates.",
+                fg="green",
             )
         )
 
@@ -279,7 +285,7 @@ def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-local
     )
 
     # Determine the size of a progressbar
-    length = at_least or max_size
+    length = min_duplicates or max_total_size
     if length is None:
         # If no limits are given, we are to process all files
         length = 0
@@ -296,10 +302,12 @@ def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-local
 
     # Stage 3: comparing checksums
     with click.progressbar(
-        length=length, label="Determining files' checksums"
+        length=length,
+        label="Determining files' checksums",
+        item_show_func=lambda _: f"Found {found_dups} duplicates",
     ) as stage3_pb:  # pyright: ignore
         for size in stage2_sizes:
-            if at_least and (found_dups >= at_least):
+            if min_duplicates and (found_dups >= min_duplicates):
                 # If there is a limit on the number of duplicates found, and we
                 # have reached it, stop.
                 break
@@ -320,7 +328,10 @@ def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-local
             for file in hashes_of_files[None]:
                 # We are iterating through a set of files with no cached
                 # checksum.
-                if max_size and total_size_checksummed + size > max_size:
+                if (
+                    max_total_size
+                    and total_size_checksummed + size > max_total_size
+                ):
                     # We cannot checksum due to the limit on the total size of
                     # files checksummed => done with this size
                     break
@@ -331,10 +342,10 @@ def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-local
                 total_size_checksummed += size
                 store_checksum(file, cal_cs)
                 hashes_of_files[cal_cs].add(file)
-                if max_size:
+                if max_total_size:
                     # If there is a limit on the total size of files
                     # checksummed, update the progressbar
-                    stage3_pb.update(size)  # pyright: ignore
+                    stage3_pb.update(size, 1)  # pyright: ignore
             # Remove files we ignored because of size limitation
             del hashes_of_files[None]
 
@@ -348,27 +359,26 @@ def cli(  # pylint: disable=too-many-statements,too-many-branches,too-many-local
                 # We have some duplicates
                 found_dups += dups
                 found_duplicate_files[size] = identical
-            if at_least and dups:
+            if min_duplicates and dups:
                 # If there is a limit on the number of duplicates found, update
                 # the progressbar
-                stage3_pb.update(dups)  # pyright: ignore
-            elif not max_size:
+                stage3_pb.update(dups, 1)  # pyright: ignore
+            elif not max_total_size:
                 # If there were no limits, update the progressbar with the
                 # total size
-                stage3_pb.update(size * len(files))  # pyright: ignore
+                stage3_pb.update(size * len(files), 1)  # pyright: ignore
 
-        stage3_pb.update(length)  # pyright: ignore
-
-        for size, identical in reversed(found_duplicate_files.items()):
-            duplicate_files = "\n".join(str(p) for p in identical)
-            click.echo(
-                click.style(
-                    f"\nFound {len(identical)} duplicates of size "
-                    f"{_human_readble_size(size)}:\n{duplicate_files}",
-                    fg="blue",
-                )
+    # Output found duplicate files
+    for size, identical in reversed(found_duplicate_files.items()):
+        duplicate_files = "\n".join(str(p) for p in identical)
+        click.echo(
+            click.style(
+                f"\nFound {len(identical)} duplicates of size "
+                f"{_human_readble_size(size)}:\n{duplicate_files}",
+                fg="blue",
             )
+        )
 
 
 if __name__ == "__main__":
-    cli()  # pylint: disable=no-value-for-parameter
+    duplicate_finder()  # pylint: disable=no-value-for-parameter
