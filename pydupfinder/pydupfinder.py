@@ -2,170 +2,19 @@
 Command processor.
 """
 
-import hashlib
-from collections import defaultdict
-from functools import partial
 from pathlib import Path
-import sqlite3
-from typing import DefaultDict, Dict, List, Optional, Set
+from typing import Optional
 
 import click
 from click_option_group import MutuallyExclusiveOptionGroup
 
+
+from pydupfinder.pentode_fi.body import find_duplicates
+from pydupfinder.pentode_fi.size import parse_size
+
 LIMITS = MutuallyExclusiveOptionGroup(
     "Limits", help="Limits for found duplicates"
 )
-
-
-def _get_checksum_from_cache(
-    sqlite_cache: sqlite3.Connection, file_path: Path
-) -> Optional[str]:
-    """
-    Return cached checksum for file, if it does exist.
-
-    :param sqlite_cache: The path to SQLite database with cached checksums.
-    :param file_path: The absolute path to file to find checksum for.
-    :returns: Cached checksum, if found in the cache, None otherwise.
-    """
-    res = sqlite_cache.execute(
-        "SELECT checksum FROM files WHERE file = ?;", (str(file_path),)
-    ).fetchone()
-    return res[0] if res else None
-
-
-def _store_checksum_in_cache(
-    sqlite_cache: sqlite3.Connection, file_path: Path, file_hash: str
-):
-    """
-    Store checksum for file in the cache.
-
-    Writes a row to SQLite table 'files' mapping the given file to the given
-    checksum.
-
-    """
-    sqlite_cache.execute(
-        "INSERT INTO files VALUES(:path, :checksum);",
-        {"path": str(file_path), "checksum": file_hash},
-    )
-
-
-def _calculated_checksum(file_path: Path) -> str:
-    """
-    Return hexdigest of md5 hash of the file with the given path.
-
-    :param file_path: The absolute path to the file.
-    :param cache: The path to the database containing cache with hashes, to
-                  store the calculated checksum in.
-    :returns: Hexdigest of md5 sum of the given file.
-    """
-    with file_path.open(mode="rb") as file:
-        file_bytes = file.read()
-        file_hash = hashlib.md5(file_bytes).hexdigest()
-
-    return file_hash
-
-
-def _parse_size(
-    _ctx: click.Context,  # pyright: ignore
-    _param: click.Parameter,  # pyright: ignore
-    value: Optional[str],
-) -> Optional[int]:
-    """
-    Return the value of max-size option as a string.
-
-    Takes into acount letter suffices.
-
-    :param _ctx: Click Context. Unused.
-    :param _param: Click Parameter. Unused.
-    :param value: Option value as a string.
-    :returns: Option value as a number.
-    :raise click.BadParameter: Exception raised if the option value cannot be
-                               parsed or is non-strictly positive, to signal
-                               click that the option value is not valid.
-    """
-    if value is None:
-        return None
-    if value == "":
-        raise click.BadParameter(f"Cannot parse size '{value}'.")
-    multiplier = {
-        "k": 1024,
-        "K": 1024,
-        "m": 1024 * 1024,
-        "M": 1024 * 1024,
-        "g": 1024 * 1024 * 1024,
-        "G": 1024 * 1024 * 1024,
-    }.get(value[-1], 1)
-    val = value
-    for suffix in ["k", "m", "g"]:
-        val = val.removesuffix(suffix.lower())
-        val = val.removesuffix(suffix.upper())
-    val = val.rstrip()
-    try:
-        parsed = int(val) * multiplier
-        if parsed <= 0:
-            raise click.BadParameter(
-                f"Got value '{value}'. It must be strictly positive."
-            )
-        return parsed
-    except ValueError:
-        raise click.BadParameter(  # pylint: disable=raise-missing-from
-            f"Cannot parse size '{value}'."
-        )
-
-
-def _human_readble_size(size: int, digits: int = 2) -> str:
-    """
-    Convert size to human readable format.
-
-    If size is more than or equal to a half of a kilobyte (megabyte, gigabyte)
-    it is presented as a decimal fraction with the given number of digits after
-    the decimal separator and a Ki (Mi, Gi) suffix. The "B" on the end is
-    always added.
-
-    :param size: size to convert
-    :param digits: the number of digits after the decimal separator.
-    :returns: the string reprosentation of the size.
-    """
-    next_unit = 1024
-    half_kib = 512
-    half_mib = half_kib * next_unit
-    half_gib = half_mib * next_unit
-    if size < half_kib:
-        adjusted = size
-        units = ""
-    elif size < half_mib:
-        adjusted = size / next_unit
-        units = "Ki"
-    elif size < half_gib:
-        adjusted = size / next_unit / next_unit
-        units = "Mi"
-    else:
-        adjusted = size / next_unit / next_unit / next_unit
-        units = "Gi"
-
-    return f"{round(adjusted, ndigits=digits)}{units}B"
-
-
-def _get_database_connection(reset_checksum_cache: bool):
-    """
-    Get the connection to the cache database.
-
-    :param reset_checksum_cache: If set, deletes and recreates the cache
-                                 database.
-    :returns: The connection to the cache database for this application.
-    """
-    app_dir = Path(click.get_app_dir("Pydupfinder"))
-    app_dir.mkdir(parents=True, exist_ok=True)
-    database = app_dir / "cache.sqlite"
-    if reset_checksum_cache:
-        database.unlink(missing_ok=True)
-    conn = sqlite3.connect(database)
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS files "
-        "(file TEXT PRIMARY KEY, checksum TEXT);"
-    )
-    conn_ro = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
-    return conn, conn_ro
 
 
 @click.command()
@@ -182,7 +31,7 @@ def _get_database_connection(reset_checksum_cache: bool):
     "-t",
     "max_total_size",
     help="Calculate checksums for AT MOST this total size of files.",
-    callback=_parse_size,
+    callback=parse_size,
 )
 @click.option(
     "--reset-checksum-cache",
@@ -192,7 +41,7 @@ def _get_database_connection(reset_checksum_cache: bool):
     default=False,
     help="Remove database, caching checksums",
 )
-def duplicate_finder(  # pylint: disable=too-many-statements,too-many-branches,too-many-locals  # noqa: E501
+def duplicate_finder(
     path: str,
     min_duplicates: Optional[int],
     max_total_size: int,
@@ -201,187 +50,28 @@ def duplicate_finder(  # pylint: disable=too-many-statements,too-many-branches,t
     """
     Find duplicate files.
     """
-    conn, conn_ro = _get_database_connection(reset_checksum_cache)
-    cached_checksum = partial(_get_checksum_from_cache, conn_ro)
-    with conn:
-        store_checksum = partial(_store_checksum_in_cache, conn)
-
-        real_path = Path(path).resolve()
+    real_path = Path(path).resolve()
+    click.echo(
+        click.style(
+            f"Pydupfinder started, searching for duplicates in '{path}'.",
+            fg="green",
+        )
+    )
+    if max_total_size:
         click.echo(
             click.style(
-                f"Pydupfinder started, searching for duplicates in '{path}'.",
+                f"Checksumming at most {max_total_size} bytes.", fg="green"
+            )
+        )
+    if min_duplicates:
+        click.echo(
+            click.style(
+                f"Trying to find at least {min_duplicates} duplicates.",
                 fg="green",
             )
         )
-        if max_total_size is not None:
-            click.echo(
-                click.style(
-                    f"Checksumming at most {max_total_size} bytes.", fg="green"
-                )
-            )
-        if min_duplicates is not None:
-            click.echo(
-                click.style(
-                    f"Trying to find at least {min_duplicates} duplicates.",
-                    fg="green",
-                )
-            )
-
-        bad_files: List[str] = []
-
-        # The following dictionary maps file size to the set of files with this
-        # size
-        files_by_size: DefaultDict[int, Set[Path]] = defaultdict(set)
-
-        # The following generator has all the files in the given directory
-        stage1_files = (p for p in real_path.rglob("*") if p.is_file())
-
-        # Stage 1: we are going through all the files, finding their sizes
-        click.echo(click.style("Determining file sizes...", fg="blue"))
-        found_files = 0
-        for file_path in stage1_files:
-            found_files += 1
-            if found_files % 10000 == 0:
-                click.echo(click.style(f"Found: {found_files}", fg="green"))
-            try:
-                stat = file_path.stat()
-            except Exception:  # pylint: disable=broad-except
-                bad_files.append(str(file_path))
-                continue
-            size = stat.st_size
-            files_by_size[size].add(file_path)
-        click.echo(click.style(f"Found: {found_files}", fg="green"))
-
-        click.echo(
-            click.style(
-                f"\nFound {len(files_by_size)} sizes and {len(bad_files)} "
-                "non-accessible files.",
-                fg="blue",
-            )
-        )
-
-        if bad_files:
-            click.echo(
-                click.style(
-                    "The inaccessible files:\n{'\n'.join(bad_files)}", fg="red"
-                )
-            )
-
-        # Stage 2: finding potential duplicates, i.e. sets of files of the same
-        # size. This operation does not cause OneDrive download.
-        click.echo(
-            click.style(
-                "Finding the sets of the files with the same size...",
-                fg="blue",
-            )
-        )
-        for size in files_by_size.copy().keys():
-            if len(files_by_size[size]) == 1:
-                # If there is only one file of the given size, we are not
-                # interested in it
-                del files_by_size[size]
-        stage2_sizes = sorted(files_by_size.keys(), reverse=True)
-        click.echo(
-            click.style(
-                f"{len(stage2_sizes)} potential duplicates.", fg="blue"
-            )
-        )
-
-        # Determine the size of a progressbar
-        length = min_duplicates or max_total_size
-        if length is None:
-            # If no limits are given, we are to process all files
-            length = 0
-            for size, files in files_by_size.items():
-                length += size * len(files)
-
-        # So far we did not find any duplicates and did not checksum any files
-        found_dups = 0
-        total_size_checksummed = 0
-
-        # The following dictionary maps the size to a set of found duplicate files
-        # of this size
-        found_duplicate_files: Dict[int, Set[Path]] = {}
-
-        # Stage 3: comparing checksums
-        with click.progressbar(
-            length=length,
-            label="Determining files' checksums",
-            item_show_func=lambda _: f"Found {found_dups} duplicates",
-        ) as stage3_pb:  # pyright: ignore
-            for size in stage2_sizes:
-                if min_duplicates and (found_dups >= min_duplicates):
-                    # If there is a limit on the number of duplicates found, and we
-                    # have reached it, stop.
-                    break
-
-                # Take the files of the given size
-                files = files_by_size[size]
-                # The following dictionary maps checksum to a set of files with
-                # this checksum.
-                hashes_of_files: DefaultDict[
-                    Optional[str], Set[Path]
-                ] = defaultdict(set)
-                # Find the cached checksums
-                for file in files:
-                    ch_cs = cached_checksum(file)
-                    hashes_of_files[ch_cs].add(file)
-                # Now calculate checksums of other files, if there are other files
-                # and size is not too big
-                for file in hashes_of_files[None]:
-                    # We are iterating through a set of files with no cached
-                    # checksum.
-                    if (
-                        max_total_size
-                        and total_size_checksummed + size > max_total_size
-                    ):
-                        # We cannot checksum due to the limit on the total size of
-                        # files checksummed => done with this size
-                        break
-                    # The next line calculates the checksum of the current file.
-                    # This operation requires the file content => triggers OneDrive
-                    # download.
-                    cal_cs = _calculated_checksum(file)
-                    total_size_checksummed += size
-                    store_checksum(file, cal_cs)
-                    hashes_of_files[cal_cs].add(file)
-                    if max_total_size:
-                        # If there is a limit on the total size of files
-                        # checksummed, update the progressbar
-                        stage3_pb.update(size, 1)  # pyright: ignore
-                # Remove files we ignored because of size limitation
-                del hashes_of_files[None]
-
-                dups = 0
-                # Check if there are any duplicates.
-                for identical in hashes_of_files.values():
-                    dups = len(identical)
-                    if dups == 1:
-                        # Only one file in this checksum group => not a duplicate
-                        continue
-                    # We have some duplicates
-                    found_dups += dups
-                    found_duplicate_files[size] = identical
-                if min_duplicates and dups:
-                    # If there is a limit on the number of duplicates found, update
-                    # the progressbar
-                    stage3_pb.update(dups, 1)  # pyright: ignore
-                elif not max_total_size:
-                    # If there were no limits, update the progressbar with the
-                    # total size
-                    stage3_pb.update(size * len(files), 1)  # pyright: ignore
-
-    # Output found duplicate files
-    for size, identical in reversed(found_duplicate_files.items()):
-        duplicate_files = "\n".join(str(p) for p in identical)
-        click.echo(
-            click.style(
-                f"\nFound {len(identical)} duplicates of size "
-                f"{_human_readble_size(size)}:\n{duplicate_files}",
-                fg="blue",
-            )
-        )
-
-
-if __name__ == "__main__":
-    duplicate_finder()  # pylint: disable=no-value-for-parameter
+    if reset_checksum_cache:
+        click.echo(click.style("Checksum cache will be reset.", fg="green"))
+    find_duplicates(
+        real_path, min_duplicates, max_total_size, reset_checksum_cache
+    )
