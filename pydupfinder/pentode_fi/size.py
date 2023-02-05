@@ -12,7 +12,7 @@ def parse_size(
     value: Optional[str],
 ) -> Optional[int]:
     """
-    Return the value of max-size option as a string.
+    Return the value of max-size option given as a string.
 
     Takes into acount letter suffices.
 
@@ -20,9 +20,10 @@ def parse_size(
     :param _param: Click Parameter. Unused.
     :param value: Option value as a string.
     :returns: Option value as a number.
-    :raise click.BadParameter: Exception raised if the option value cannot be
-                               parsed or is non-strictly positive, to signal
-                               click that the option value is not valid.
+    :raise click.BadParameter: Exception raised if the option value
+                               cannot be parsed or is non-strictly
+                               positive, to signal click that the
+                               option value is not valid.
     """
     if value is None:
         return None
@@ -43,15 +44,15 @@ def parse_size(
     val = val.rstrip()
     try:
         parsed = int(val) * multiplier
-        if parsed <= 0:
-            raise click.BadParameter(
-                f"Got value '{value}'. It must be strictly positive."
-            )
-        return parsed
     except ValueError:
         raise click.BadParameter(  # pylint: disable=raise-missing-from
             f"Cannot parse size '{value}'."
         )
+    if parsed <= 0:
+        raise click.BadParameter(
+            f"Got value '{value}'. It must be strictly positive."
+        )
+    return parsed
 
 
 def human_readable_size(size: int, digits: int = 2) -> str:

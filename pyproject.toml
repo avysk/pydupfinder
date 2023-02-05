@@ -9,6 +9,7 @@ readme = "README.md"
 python = "^3.10"
 click = "^8.1.3"
 click-option-group = "^0.5.5"
+psutil = "^5.9.4"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -17,6 +18,10 @@ black = "^22.12.0"
 ruff = "^0.0.231"
 pytest = "^7.2.1"
 pyright = "^1.1.291"
+pytest-xdist = "^3.1.0"
+pytest-clarity = "^1.0.1"
+pytest-cov = "^4.0.0"
+pytest-socket = "^0.6.0"
 
 [tool.poetry.scripts]
 pydupfinder = "pydupfinder.pydupfinder:duplicate_finder"
@@ -24,3 +29,6 @@ pydupfinder = "pydupfinder.pydupfinder:duplicate_finder"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+omit = ["tests/**/*"]
