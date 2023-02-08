@@ -9,14 +9,14 @@ import click
 from pydupfinder.pentode_fi.size import human_readable_size
 
 
-def start_finding_sizes():
+def start_finding_sizes() -> None:
     """
     Inform the user that the finding sizes of the files has started.
     """
     click.echo(click.style("Determining file sizes...", fg="blue"))
 
 
-def start_finding_potential_duplicates():
+def start_finding_potential_duplicates() -> None:
     """
     Inform the user that the finding of potential duplicates has
     started.
@@ -29,19 +29,21 @@ def start_finding_potential_duplicates():
     )
 
 
-def report_found_files(files_found: int, *, unconditionally: bool = False):
+def report_found_files(
+    files_found: int, *, unconditionally: bool = False
+) -> None:
     """
     Inform the user how many files were found.
 
     :param files_found: The number of files found.
-    :returns: TODO
-
     """
     if unconditionally or files_found % 10000 == 0:
         click.echo(click.style(f"Found: {files_found} files", fg="green"))
 
 
-def final_report_found_files(sizes_found: int, found_inaccessible_files: int):
+def final_report_found_files(
+    sizes_found: int, found_inaccessible_files: int
+) -> None:
     """
     Inform the user that the given amount of file sizes and the given
     amount of inaccessible files were found.
@@ -59,7 +61,7 @@ def final_report_found_files(sizes_found: int, found_inaccessible_files: int):
     )
 
 
-def report_bad_files(bad_files: Set[Path]):
+def report_bad_files(bad_files: Set[Path]) -> None:
     """
     Inform the user about inaccessible files.
 
@@ -77,7 +79,7 @@ def report_bad_files(bad_files: Set[Path]):
     )
 
 
-def report_potential_duplicates(maybe_duplicates: int):
+def report_potential_duplicates(maybe_duplicates: int) -> None:
     """
     Inform the user that the given amount of potential duplicates was
     found.
@@ -89,7 +91,7 @@ def report_potential_duplicates(maybe_duplicates: int):
     )
 
 
-def report_duplicates(duplicates: Dict[int, Set[Path]]):
+def report_duplicates(duplicates: Dict[int, Set[Path]]) -> None:
     """
     Inform the user about finded duplicates.
 
