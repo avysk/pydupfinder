@@ -26,7 +26,7 @@ LIMITS = MutuallyExclusiveOptionGroup(
     help="Find AT LEAST that many duplicates if there are enough duplicates.",
     type=click.IntRange(min=2),
 )
-@LIMITS.option(  # type: ignore
+@LIMITS.option(  # pyright: ignore
     "--max-total-size-of-checksummed files",
     "-t",
     "max_total_size",
