@@ -33,10 +33,10 @@ jobs:
     - name: Lint with pylint
       run: poetry run pylint --recursive=y -j 4 .
     - name: Lint with pyright
-      run: poetry run pyright --verbose
+      uses: jakebailey/pyright-action@v1
     - name: Lint with ruff
       run: poetry run ruff .
-    - name: Lint with pyright
+    - name: Check formatting with black
       run: poetry run black -l 79 --check .
     - name: Test with pytest
       run: poetry run pytest -vv -n auto --disable-socket
