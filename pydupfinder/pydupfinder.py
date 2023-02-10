@@ -10,7 +10,7 @@ from click_option_group import MutuallyExclusiveOptionGroup
 
 
 from pydupfinder.pentode_fi.body import find_duplicates
-from pydupfinder.pentode_fi.size import parse_size
+from pydupfinder.pentode_fi.number import parse_size
 
 LIMITS = MutuallyExclusiveOptionGroup(
     "Limits", help="Limits for found duplicates"

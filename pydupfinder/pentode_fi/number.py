@@ -14,7 +14,8 @@ def parse_size(
     """
     Return the value of max-size option given as a string.
 
-    Takes into acount letter suffices.
+    Takes into acount letter suffices. The number before the suffix can
+    be a decimal fraction.
 
     :param _ctx: Click Context. Unused.
     :param _param: Click Parameter. Unused.
@@ -43,7 +44,7 @@ def parse_size(
         val = val.removesuffix(suffix.upper())
     val = val.rstrip()
     try:
-        parsed = int(val) * multiplier
+        parsed = int(float(val) * multiplier)
     except ValueError:
         raise click.BadParameter(  # pylint: disable=raise-missing-from
             f"Cannot parse size '{value}'."
@@ -55,34 +56,34 @@ def parse_size(
     return parsed
 
 
-def human_readable_size(size: int, digits: int = 2) -> str:
+def human_readable_number(number: int, digits: int = 2) -> str:
     """
-    Convert size to human readable format.
+    Convert number to human readable format.
 
-    If size is more than or equal to a half of a kilobyte (megabyte, gigabyte)
-    it is presented as a decimal fraction with the given number of digits after
-    the decimal separator and a Ki (Mi, Gi) suffix. The "B" on the end is
-    always added.
+    If number is more than or equal to a half of a kilo (mega, giga)
+    it is presented as a decimal fraction with the given number of
+    digits after the decimal separator and a Ki (Mi, Gi) suffix.
 
-    :param size: size to convert
+    :param number: number to convert
     :param digits: the number of digits after the decimal separator.
     :returns: the string reprosentation of the size.
     """
     next_unit = 1024
-    half_kib = 512
-    half_mib = half_kib * next_unit
-    half_gib = half_mib * next_unit
-    if size < half_kib:
-        adjusted = size
+    half_ki = 512
+    half_mi = half_ki * next_unit
+    half_gi = half_mi * next_unit
+    adjusted: float
+    if number < half_ki:
+        adjusted = number
         units = ""
-    elif size < half_mib:
-        adjusted = size / next_unit
+    elif number < half_mi:
+        adjusted = number / next_unit
         units = "Ki"
-    elif size < half_gib:
-        adjusted = size / next_unit / next_unit
+    elif number < half_gi:
+        adjusted = number / next_unit / next_unit
         units = "Mi"
     else:
-        adjusted = size / next_unit / next_unit / next_unit
+        adjusted = number / next_unit / next_unit / next_unit
         units = "Gi"
 
-    return f"{round(adjusted, ndigits=digits)}{units}B"
+    return f"{round(adjusted, ndigits=digits)}{units}"

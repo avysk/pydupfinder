@@ -6,7 +6,7 @@ from typing import Dict, Set
 
 import click
 
-from pydupfinder.pentode_fi.size import human_readable_size
+from pydupfinder.pentode_fi.number import human_readable_number
 
 
 def start_finding_sizes() -> None:
@@ -109,7 +109,7 @@ def report_duplicates(duplicates: Dict[int, Set[Path]]) -> None:
         click.echo(
             click.style(
                 f"\nFound {len(identical)} duplicates of size "
-                f"{human_readable_size(size)}:\n{duplicate_files}",
+                f"{human_readable_number(size)}:\n{duplicate_files}",
                 fg="blue",
             )
         )
