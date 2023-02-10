@@ -23,6 +23,7 @@ pytest-clarity = "^1.0.1"
 pytest-cov = "^4.0.0"
 pytest-socket = "^0.6.0"
 mypy = "^1.0.0"
+types-psutil = "^5.9.5.6"
 
 [tool.poetry.scripts]
 pydupfinder = "pydupfinder.pydupfinder:duplicate_finder"
