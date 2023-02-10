@@ -22,9 +22,9 @@ from pydupfinder.pentode_fi.interface import (
 def find_duplicates(  # pylint: disable=too-many-locals
     path: Path,
     min_duplicates: Optional[int],
-    max_total_size: int,
+    max_total_size: Optional[int],
     reset_checksum_cache: bool,
-):
+) -> None:
     """
     Find duplicate files.
 
@@ -77,7 +77,7 @@ def find_duplicates(  # pylint: disable=too-many-locals
         found_duplicate_files: Dict[int, Set[Path]] = {}
 
         # Stage 3: comparing checksums
-        with click.progressbar(
+        with click.progressbar(  # type: ignore
             length=length,
             label="Determining files' checksums",
             item_show_func=lambda _: f"Found {found_dups} duplicates",

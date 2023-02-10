@@ -44,7 +44,7 @@ LIMITS = MutuallyExclusiveOptionGroup(
 def duplicate_finder(
     path: str,
     min_duplicates: Optional[int],
-    max_total_size: int,
+    max_total_size: Optional[int],
     reset_checksum_cache: bool,
 ):
     """

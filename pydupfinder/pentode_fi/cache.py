@@ -28,7 +28,7 @@ def _get_checksum_from_cache(
 
 def _store_checksum_in_cache(
     sqlite_cache: sqlite3.Connection, file_path: Path, file_hash: str
-):
+) -> None:
     """
     Store checksum for file in the cache.
 
