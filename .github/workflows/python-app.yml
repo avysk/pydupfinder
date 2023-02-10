@@ -31,7 +31,7 @@ jobs:
     - name: Check types with mypy
       run: poetry run mypy --strict .
     - name: Lint with pylint
-      run: poetry run pylint --recursive=y -j 4 .
+      run: poetry run pylint --recursive=y -j 0 .
     - name: Lint with pyright
       run: poetry run pyright
     - name: Lint with ruff
