@@ -33,7 +33,7 @@ jobs:
     - name: Lint with pylint
       run: poetry run pylint --recursive=y -j 4 .
     - name: Lint with pyright
-      uses: jakebailey/pyright-action@v1
+      run: poetry run pyright
     - name: Lint with ruff
       run: poetry run ruff .
     - name: Check formatting with black
