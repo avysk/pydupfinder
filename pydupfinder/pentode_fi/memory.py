@@ -4,15 +4,15 @@ Memory-related functions.
 from typing import Optional
 
 import click
-import psutil  # type: ignore
+import psutil
 
-from pydupfinder.pentode_fi.size import parse_size
+from pydupfinder.pentode_fi.number import parse_size
 
 
 def parse_memory_limit(
-    ctx: click.Context,  # pyright: ignore
-    param: click.Parameter,  # pyright: ignore
-    value: str,
+    ctx: click.Context,
+    param: click.Parameter,
+    value: Optional[str],
 ) -> Optional[int]:
     """
     Return the value of max-memory option given as a string.
@@ -28,11 +28,13 @@ def parse_memory_limit(
                                positive, to signal click that the
                                option value is not valid.
     """
-    if value.endswith("*"):
+    if value is None:
+        return None
+    if value.endswith("%"):
         val = value.removesuffix("%")
         val = val.rstrip()
         try:
-            parsed = float(value)
+            parsed = float(val)
         except ValueError:
             raise click.BadParameter(  # pylint: disable=raise-missing-from
                 f"Cannot parse size '{value}'."
