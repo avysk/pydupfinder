@@ -28,11 +28,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install poetry
         poetry install
+    - name: Check types with mypy
+      run: poetry run mypy --strict .
     - name: Lint with pylint
       run: poetry run pylint --recursive=y -j 4 .
+    - name: Lint with pyright
+      run: poetry run pyright --verbose
     - name: Lint with ruff
       run: poetry run ruff .
     - name: Lint with pyright
-      run: poetry run pyright --verbose
-    - name: Check formatting with black
       run: poetry run black -l 79 --check .
+    - name: Test with pytest
+      run: poetry run pytest -vv -n auto --disable-socket
