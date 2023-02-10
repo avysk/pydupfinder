@@ -1,10 +1,11 @@
 """
 Tests for pydupfinder.pentode_fi.memory.
 """
-from click import BadParameter
-import pytest
 from typing import Optional
 from unittest.mock import NonCallableMock, patch
+
+from click import BadParameter
+import pytest
 
 import pydupfinder.pentode_fi.memory
 
@@ -25,9 +26,11 @@ def test_parsing_memory_limit(
     Test that memory limit is parsed correctly if given as percentage
     of the total memory.
     """
-    with patch("pydupfinder.pentode_fi.memory.psutil.virtual_memory") as vm:
-        vm.return_value = NonCallableMock()
-        vm.return_value.total = 17179869184
+    with patch(
+        "pydupfinder.pentode_fi.memory.psutil.virtual_memory"
+    ) as virtual:
+        virtual.return_value = NonCallableMock()
+        virtual.return_value.total = 17179869184
         assert expected == pydupfinder.pentode_fi.memory.parse_memory_limit(
             NonCallableMock(), NonCallableMock(), given
         )
